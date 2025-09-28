@@ -71,7 +71,7 @@
         scene.add(plane);
 
         const exrLoader = new THREE.EXRLoader();
-        exrLoader.load('https://macaronieiei.github.io/FinalProject/citrus_orchard_puresky_1k.exr', function (texture) {
+        exrLoader.load('https://macaronieiei.github.io/ComputerGraphic_FinalProject/citrus_orchard_puresky_1k.exr', function (texture) {
             texture.mapping = THREE.EquirectangularReflectionMapping;
 
             const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -88,7 +88,7 @@
 
         // Load GLB Model with PBR
         const loader = new THREE.GLTFLoader();
-        loader.load('https://macaronieiei.github.io/FinalProject/name.glb?t=' + Date.now(), function (gltf) {
+        loader.load('https://macaronieiei.github.io/ComputerGraphic_FinalProject/name.glb?t=' + Date.now(), function (gltf) {
             const model = gltf.scene;
 
             model.traverse(child => {
