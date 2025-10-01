@@ -210,8 +210,7 @@
                             map: oldMat.map || null,
                             metalness: 0,
                             roughness: 1,
-                            envMap: scene.environment,
-                            envMapIntensity: 2,
+                            envMapIntensity: 1,
                             normalMap: oldMat.normalMap || null,
                             transparent: oldMat.transparent || false,
                             opacity: oldMat.opacity || 1
@@ -221,12 +220,11 @@
             });
 
             myImage.scale.set(8, 8, 8);          // ปรับขนาดตามต้องการ
-            myImage.position.set(-50, -10, 9);   // ปรับตำแหน่งตามต้องการ
-            myImage.rotation.y = (Math.PI / 2) - 0.4; // หมุนขวา 90 องศา
+            myImage.position.set(-60, -12, 20); 
+             
+            myImage.rotation.y = (Math.PI / 2) - 0.4 ; // หมุนขวา 90 องศ
             myImage.visible = false;    
             scene.add(myImage);
-
-            
 
             myImageReady = true;
             checkReady();
