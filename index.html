@@ -68,6 +68,7 @@
         let exrReady = false;
         let homeReady = false;
         let textInfoReady = false;
+        let myImageReady = false;
 
         // Clickable objects
         const clickable = [];
@@ -82,8 +83,8 @@
         // --- Views ---
         const VIEWS = {
             textMyInfo: {
-                pos: new THREE.Vector3(-16, 4, 22),
-                tar: new THREE.Vector3(-22, 4, 22)
+                pos: new THREE.Vector3(-16, 6, 30),
+                tar: new THREE.Vector3(-26, 5, 25)
             }
         };
 
@@ -193,9 +194,47 @@
             checkReady();
         });
 
+        // --- Add Image ---
+        let myImage = null;
+        GLB_loader.load('https://macaronieiei.github.io/ComputerGraphic_FinalProject/MyImage.glb?t=' + Date.now(), gltf => {
+            myImage = gltf.scene;
+
+            myImage.traverse(child => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    if (child.material) {
+                        const oldMat = child.material;
+                        child.material = new THREE.MeshStandardMaterial({
+                            color: oldMat.color || new THREE.Color(0xffffff),
+                            map: oldMat.map || null,
+                            metalness: 0,
+                            roughness: 1,
+                            envMap: scene.environment,
+                            envMapIntensity: 2,
+                            normalMap: oldMat.normalMap || null,
+                            transparent: oldMat.transparent || false,
+                            opacity: oldMat.opacity || 1
+                        });
+                    }
+                }
+            });
+
+            myImage.scale.set(8, 8, 8);          // ปรับขนาดตามต้องการ
+            myImage.position.set(-50, -10, 9);   // ปรับตำแหน่งตามต้องการ
+            myImage.rotation.y = (Math.PI / 2) - 0.4; // หมุนขวา 90 องศา
+            myImage.visible = false;    
+            scene.add(myImage);
+
+            
+
+            myImageReady = true;
+            checkReady();
+
+        });
 
         function checkReady() {
-            if (exrReady && homeReady && textInfoReady) {
+            if (exrReady && homeReady && textInfoReady && myImageReady) {
                 document.getElementById("loadingOverlay").style.display = "none";
                 animate();
             }
@@ -209,11 +248,10 @@
         document.getElementById('resetBtn').addEventListener('click', () => {
             resetting = true;
 
-            // ให้ textMyInfo ปรากฏกลับมาเมื่อ reset
-            if (textMyInfo) {
-                textMyInfo.visible = true;
-            }
+            if (textMyInfo) textMyInfo.visible = true;
+            if (myImage) myImage.visible = false;
         });
+
 
         // --- Raycaster ---
         const raycaster = new THREE.Raycaster();
@@ -228,22 +266,27 @@
             pointer.y = -(((e.clientY ?? e.touches[0].clientY) - r.top) / r.height * 2 - 1);
         }
         let hideTextAfterMove = false; // flag
-        
+
         function onClick(e) {
-            hideTextAfterMove = true;
             setPointer(e);
             raycaster.setFromCamera(pointer, camera);
-            const hit = raycaster.intersectObjects(clickable, true)[0]; // ใช้ true เพื่อเช็ค child ด้วย
+            const hit = raycaster.intersectObjects(clickable, true)[0];
             if (!hit) return;
 
-            const view = VIEWS[hit.object.name];
-            if (!view) return;
+            if (hit.object.name === "textMyInfo") {
+                // ซ่อน textMyInfo
+                if (textMyInfo) textMyInfo.visible = false;
 
-            targetCameraPos.copy(view.pos);
-            targetControls.copy(view.tar);
-            moveCamera = true;
-            
+                // ตั้งตำแหน่ง myImage ตรงกล้อง (เล็กน้อยด้านหน้า)
+                if (myImage) myImage.visible = true;
+
+                // เคลื่อนกล้องไปตำแหน่ง view
+                targetCameraPos.copy(VIEWS.textMyInfo.pos);
+                targetControls.copy(VIEWS.textMyInfo.tar);
+                moveCamera = true;
+            }
         }
+
 
         renderer.domElement.addEventListener('click', onClick);
 
