@@ -196,6 +196,162 @@
             textInfoReady = true;
             checkReady();
         });
+        // --- Cel Shader Custom Object ด้านล่าง MyInformation ---
+
+        const uniforms = {
+            uTime: { value: 0.0 },
+            uLightDir: { value: new THREE.Vector3(0.4, 1.0, 0.8).normalize() },
+            uColor: { value: new THREE.Color(0xff99cc) } // สีชมพู
+        };
+
+        const vert = `
+uniform float uTime;
+varying vec3 vNormal;
+varying vec3 vPosW;
+void main() {
+    vNormal = normalize(mat3(modelMatrix) * normal);
+    vPosW   = ( modelMatrix * vec4(position, 1.0)).xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+
+        const frag = `
+precision mediump float;
+uniform vec3 uColor;
+uniform vec3 uLightDir;
+varying vec3 vNormal;
+varying vec3 vPosW;
+
+void main() {
+    float diffuse = clamp(dot(vNormal, uLightDir), 0.0, 1.0);
+    float levels = 3.0;                        
+    diffuse   = floor(diffuse * levels) / levels;
+    diffuse += 0.6;
+
+    vec3 R = reflect(-uLightDir, vNormal);
+    vec3 V = normalize(cameraPosition - vPosW);
+    float specular = max( pow( dot(R,V), 4.0 ) , 0.0);
+    specular = smoothstep(0.4, 0.6, specular);
+    specular = clamp(specular, 0.0, 0.5);
+    if(diffuse <= 0.5) specular = 0.0;
+
+    vec3 color = (uColor * diffuse) + vec3(specular);
+    gl_FragColor = vec4(color, 1.0);
+}
+`;
+        // --- Cel Shader Custom Object ---
+        const celGeo = new THREE.TorusBufferGeometry(3, 1, 64, 128);
+        const celMat = new THREE.ShaderMaterial({
+            vertexShader: vert,
+            fragmentShader: frag,
+            uniforms: uniforms
+        });
+        const celMesh = new THREE.Mesh(celGeo, celMat);
+        celMesh.position.set(-77, 31, 18.5);
+        celMesh.visible = true;
+        celMesh.name = "celShader";
+
+        celMesh.rotation.y = -3;
+        celMesh.scale.set(0.3, 0.3, 0.3);
+        clickable.push(celMesh);
+        scene.add(celMesh);
+
+        // --- Cloud Shader with Texture ---
+
+        const cloudUniforms = {
+            uTime: { value: 0.0 },
+            uTex: { value: new THREE.TextureLoader().load("https://macaronieiei.github.io/ComputerGraphic_FinalProject/cloudTex.jpg") },
+            uOpacity: { value: 0.8 }
+        };
+        const cloudVert = `
+uniform float uTime;
+varying vec2 vUv;
+varying vec3 vPos;
+
+void main() {
+    vUv = uv;
+    vPos = position;
+
+    vec3 pos = position;
+
+    // ปรับความถี่และแอมพลิจูดให้ชัดขึ้น
+    float freqX = 1.2;   // ความถี่แกน X
+    float freqZ = 0.9;   // ความถี่แกน Z
+    float ampY = 2.5;    // แอมพลิจูดการขยับขึ้นลง
+
+    pos.y += sin(pos.x * freqX + uTime * 1.0) * ampY;
+    pos.y += cos(pos.z * freqZ + uTime * 0.8) * ampY * 0.7;
+
+    // เพิ่มการหมุน/แกว่งเล็กๆ รอบแกน X และ Z
+    pos.x += sin(uTime * 0.5 + pos.z) * 0.3;
+    pos.z += cos(uTime * 0.5 + pos.x) * 0.3;
+
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+}
+`;
+
+
+        const cloudFrag = `
+precision mediump float;
+uniform sampler2D uTex;
+uniform float uOpacity;
+varying vec2 vUv;
+varying vec3 vPos;
+
+void main() {
+    vec4 tex = texture2D(uTex, vUv);
+
+    if(tex.a < 0.1) discard;
+
+    // เพิ่ม alpha ตาม uniform
+    float alpha = tex.a * uOpacity;
+
+    gl_FragColor = vec4(tex.rgb, alpha);
+}
+`;
+        // --- สร้างกลุ่มเมฆวนรอบบ้าน ---
+        const cloudGroup = new THREE.Group();
+        scene.add(cloudGroup);
+
+        const cloudMeshes = [];
+        const cloudCount = 2;
+        const houseRadius = 10;
+        const spacing = 20; // ระยะห่างระหว่างก้อน
+
+        // กำหนดตำแหน่งแบบแน่นอน (x, z)
+        const positions = [
+            { x: -spacing + 20, z: -spacing },
+            { x: spacing + 20, z: -spacing },
+        ];
+
+        for (let i = 0; i < cloudCount; i++) {
+            const geo = new THREE.SphereGeometry(5, 64, 64);
+            const mat = new THREE.ShaderMaterial({
+                vertexShader: cloudVert,
+                fragmentShader: cloudFrag,
+                uniforms: {
+                    uTime: cloudUniforms.uTime,
+                    uTex: cloudUniforms.uTex,
+                    uOpacity: { value: 0.8 }
+                },
+                transparent: true,
+                depthWrite: false
+            });
+
+            const mesh = new THREE.Mesh(geo, mat);
+
+            // กำหนดตำแหน่งแบบไม่ random
+            const pos = positions[i];
+            mesh.position.set(pos.x, 25 + i * 5, pos.z); // y สูงซ้อนกันเล็กน้อย
+            mesh.scale.set(2, 2, 2); // บีบแกน Y และ Z
+            // เลื่อนทั้งกลุ่มเมฆขึ้นอีก 20 หน่วย
+            cloudGroup.position.y += 7;
+
+            cloudGroup.add(mesh);
+            cloudMeshes.push(mesh);
+        }
+
+
 
         // --- Add Image ---
         let myImage = null;
@@ -350,7 +506,7 @@
 
 
         function checkReady() {
-            if (exrReady && homeReady && textInfoReady && myImageReady && nameTextReady && majorTextReady && uniTextReady ) {
+            if (exrReady && homeReady && textInfoReady && myImageReady && nameTextReady && majorTextReady && uniTextReady) {
                 document.getElementById("loadingOverlay").style.display = "none";
                 animate();
             }
@@ -365,6 +521,7 @@
             resetting = true;
 
             if (textMyInfo) textMyInfo.visible = true;
+            if (celMesh) celMesh.visible = true;
             if (myImage) myImage.visible = false;
             if (nameText) nameText.visible = false;
             if (majorText) majorText.visible = false;
@@ -391,11 +548,12 @@
             const hit = raycaster.intersectObjects(clickable, true)[0];
             if (!hit) return;
 
-            if (hit.object.name === "textMyInfo") {
-                // ซ่อน textMyInfo
+            if (hit.object.name === "textMyInfo" || hit.object.name === "celShader") {
+                // ซ่อน textMyInfo และ celMesh
                 if (textMyInfo) textMyInfo.visible = false;
+                if (celMesh) celMesh.visible = false;
 
-                // ตั้งตำแหน่ง myImage ตรงกล้อง (เล็กน้อยด้านหน้า)
+                // แสดง myImage + texts
                 if (myImage) myImage.visible = true;
                 if (nameText) nameText.visible = true;
                 if (majorText) majorText.visible = true;
@@ -406,36 +564,43 @@
                 targetControls.copy(VIEWS.textMyInfo.tar);
                 moveCamera = true;
             }
-        }
 
+        }
 
         renderer.domElement.addEventListener('click', onClick);
 
+
+
         // --- Animate ---
         function animate() {
-            requestAnimationFrame(animate);
 
-            // --- Move camera to target view ---
+            requestAnimationFrame(animate);
+            const time = performance.now() / 1000.0;
+
+            // --- Update cloud shader time ---
+            cloudUniforms.uTime.value = time;
+
+            // --- อัปเดต cel shader และกล้อง ---
+            uniforms.uTime.value = time;
+            const t = uniforms.uTime.value;
+            uniforms.uLightDir.value.set(
+                Math.sin(t * 1.0) * 0.7,
+                0.5 + Math.sin(t * 0.5) * 0.2,
+                Math.cos(t * 1.2) * 0.7
+            ).normalize();
+
             if (moveCamera) {
                 camera.position.lerp(targetCameraPos, 0.04);
                 controls.target.lerp(targetControls, 0.04);
                 controls.update();
-
                 if (camera.position.distanceTo(targetCameraPos) < 0.04 &&
-                    controls.target.distanceTo(targetControls) < 0.04) {
-                    moveCamera = false;
-
-        
-                }
+                    controls.target.distanceTo(targetControls) < 0.04) moveCamera = false;
             }
 
-            // --- Reset camera ---
             if (resetting) {
                 camera.position.lerp(initialCameraPos, 0.04);
                 controls.target.lerp(initialTarget, 0.04);
                 controls.update();
-
-                // ถ้ากล้องกลับถึงตำแหน่งเดิมแล้ว
                 if (camera.position.distanceTo(initialCameraPos) < 0.04 &&
                     controls.target.distanceTo(initialTarget) < 0.04) {
                     camera.position.copy(initialCameraPos);
@@ -447,7 +612,6 @@
 
             renderer.render(scene, camera);
         }
-
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
